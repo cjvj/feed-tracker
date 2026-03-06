@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Feed Tracker">
+  <meta name="theme-color" content="#5a9e8f">
+  <title>Feed Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍼</text></svg>">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --primary: #5a9e8f;
+      --primary-dark: #4a8577;
+      --primary-light: #e4f2ee;
+      --bg: #f2f5f4;
+      --card: #ffffff;
+      --text: #2d3436;
+      --text-mid: #555;
+      --text-light: #888;
+      --border: #e8e8e8;
+      --shadow: 0 2px 12px rgba(0,0,0,0.06);
+      --radius: 14px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px));
+      -webkit-text-size-adjust: 100%;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 16px;
+      color: var(--primary-dark);
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-light);
+      margin-bottom: 12px;
+    }
+
+    /* ── Last Feed ── */
+    .last-feed-info { text-align: center; }
+
+    .last-feed-time {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--primary);
+      line-height: 1.2;
+    }
+
+    .last-feed-detail {
+      font-size: 15px;
+      color: var(--text-mid);
+      margin-top: 4px;
+    }
+
+    .no-feeds {
+      text-align: center;
+      color: var(--text-light);
+      font-size: 15px;
+      padding: 6px 0;
+    }
+
+    /* ── Button Groups ── */
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-group button {
+      flex: 1;
+      padding: 12px 6px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-group button.active {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      color: var(--primary-dark);
+    }
+
+    /* ── Side Selector (L / R) ── */
+    .side-selector {
+      display: none;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .side-selector.visible { display: flex; }
+
+    .side-btn {
+      flex: 1;
+      padding: 18px 8px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: center;
+    }
+
+    .side-btn span {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-light);
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .side-btn.active {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      color: var(--primary-dark);
+    }
+
+    .side-btn.active span { color: var(--primary); }
+
+    /* ── Timer ── */
+    .timer-section {
+      text-align: center;
+      margin-top: 16px;
+    }
+
+    .timer-display {
+      font-size: 52px;
+      font-weight: 200;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 3px;
+      color: var(--text);
+      margin: 4px 0 10px;
+      line-height: 1;
+    }
+
+    .timer-display.running { color: var(--primary); }
+
+    .timer-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .timer-btn {
+      padding: 10px 28px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .timer-btn.start { background: var(--primary); color: #fff; }
+    .timer-btn.start:active { background: var(--primary-dark); }
+    .timer-btn.pause { background: #f0c040; color: #333; }
+    .timer-btn.reset { background: #eee; color: var(--text-mid); }
+
+    .manual-time {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--text-light);
+    }
+
+    .manual-time input {
+      width: 48px;
+      padding: 6px 4px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      background: #fafafa;
+    }
+
+    .manual-time input:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: #fff;
+    }
+
+    /* ── Save Button ── */
+    .save-btn {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 12px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: all 0.2s ease;
+    }
+
+    .save-btn:disabled { opacity: 0.3; pointer-events: none; }
+    .save-btn:active:not(:disabled) { transform: scale(0.98); background: var(--primary-dark); }
+
+    .save-btn.saved {
+      background: #27ae60;
+      pointer-events: none;
+    }
+
+    /* ── History ── */
+    .history-date {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-light);
+      margin: 14px 0 4px;
+    }
+
+    .history-date:first-child { margin-top: 0; }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #f4f4f4;
+    }
+
+    .history-item:last-child { border-bottom: none; }
+
+    .history-time {
+      font-size: 14px;
+      font-weight: 600;
+      width: 72px;
+      flex-shrink: 0;
+    }
+
+    .history-type {
+      font-size: 14px;
+      color: var(--text-mid);
+      flex: 1;
+    }
+
+    .history-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-left: 4px;
+      vertical-align: 1px;
+    }
+
+    .badge-l { background: #ffeaa7; color: #b58105; }
+    .badge-r { background: #dfe6fd; color: #4a5ec7; }
+
+    .history-duration {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .history-delete {
+      margin-left: 8px;
+      padding: 6px 8px;
+      background: none;
+      border: none;
+      color: #ccc;
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .clear-btn-wrap {
+      margin-top: 14px;
+      text-align: center;
+    }
+
+    .clear-btn-wrap button {
+      background: none;
+      border: none;
+      color: var(--text-light);
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Feed Tracker</h1>
+
+  <!-- Last Feed -->
+  <div class="card">
+    <div class="card-title">Last Feed</div>
+    <div id="lastFeed">
+      <div class="no-feeds">No feeds recorded yet</div>
+    </div>
+  </div>
+
+  <!-- New Feed -->
+  <div class="card">
+    <div class="card-title">New Feed</div>
+
+    <div class="btn-group" id="typeSelector">
+      <button data-type="breast" class="active">Breast</button>
+      <button data-type="bottle">Bottle</button>
+      <button data-type="expressed">Expressed</button>
+    </div>
+
+    <div class="side-selector visible" id="sideSelector">
+      <button class="side-btn" data-side="L">L<span>Left</span></button>
+      <button class="side-btn" data-side="R">R<span>Right</span></button>
+    </div>
+
+    <div class="timer-section">
+      <div class="timer-display" id="timerDisplay">00:00</div>
+      <div class="timer-buttons">
+        <button class="timer-btn start" id="timerToggle">Start</button>
+        <button class="timer-btn reset" id="timerReset">Reset</button>
+      </div>
+      <div class="manual-time">
+        or enter <input type="number" id="manualMin" placeholder="0" min="0" max="120" inputmode="numeric"> min
+      </div>
+    </div>
+
+    <button class="save-btn" id="saveBtn" disabled>Save Feed</button>
+  </div>
+
+  <!-- History -->
+  <div class="card" id="historyCard" style="display:none">
+    <div class="card-title">History</div>
+    <div id="historyList"></div>
+    <div class="clear-btn-wrap">
+      <button id="clearHistory">Clear All History</button>
+    </div>
+  </div>
+
+<script>
+  // ── State ──
+  let feedType = 'breast';
+  let side = null;
+  let timerSeconds = 0;
+  let timerInterval = null;
+  let timerRunning = false;
+
+  // ── Elements ──
+  const $ = s => document.querySelector(s);
+  const $$ = s => document.querySelectorAll(s);
+
+  const typeButtons   = $$('#typeSelector button');
+  const sideSelector  = $('#sideSelector');
+  const sideButtons   = $$('.side-btn');
+  const timerDisplay  = $('#timerDisplay');
+  const timerToggle   = $('#timerToggle');
+  const timerReset    = $('#timerReset');
+  const manualMin     = $('#manualMin');
+  const saveBtn       = $('#saveBtn');
+  const lastFeedEl    = $('#lastFeed');
+  const historyCard   = $('#historyCard');
+  const historyList   = $('#historyList');
+  const clearBtn      = $('#clearHistory');
+
+  // ── Feed Type ──
+  typeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      typeButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      feedType = btn.dataset.type;
+
+      if (feedType === 'breast') {
+        sideSelector.classList.add('visible');
+      } else {
+        sideSelector.classList.remove('visible');
+        side = null;
+        sideButtons.forEach(b => b.classList.remove('active'));
+      }
+      updateSaveBtn();
+    });
+  });
+
+  // ── Side ──
+  sideButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      sideButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      side = btn.dataset.side;
+      updateSaveBtn();
+    });
+  });
+
+  // ── Timer ──
+  function fmtTimer(s) {
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  timerToggle.addEventListener('click', () => {
+    if (timerRunning) {
+      clearInterval(timerInterval);
+      timerRunning = false;
+      timerToggle.textContent = 'Start';
+      timerToggle.className = 'timer-btn start';
+      timerDisplay.classList.remove('running');
+    } else {
+      timerInterval = setInterval(() => {
+        timerSeconds++;
+        timerDisplay.textContent = fmtTimer(timerSeconds);
+        updateSaveBtn();
+      }, 1000);
+      timerRunning = true;
+      timerToggle.textContent = 'Pause';
+      timerToggle.className = 'timer-btn pause';
+      timerDisplay.classList.add('running');
+      manualMin.value = '';
+    }
+    updateSaveBtn();
+  });
+
+  timerReset.addEventListener('click', () => {
+    clearInterval(timerInterval);
+    timerRunning = false;
+    timerSeconds = 0;
+    timerDisplay.textContent = '00:00';
+    timerDisplay.classList.remove('running');
+    timerToggle.textContent = 'Start';
+    timerToggle.className = 'timer-btn start';
+    updateSaveBtn();
+  });
+
+  manualMin.addEventListener('input', updateSaveBtn);
+
+  // ── Save Button State ──
+  function updateSaveBtn() {
+    const hasDuration = timerSeconds > 0 || (manualMin.value && parseInt(manualMin.value) > 0);
+    const hasSide = feedType !== 'breast' || side !== null;
+    saveBtn.disabled = !(hasDuration && hasSide);
+  }
+
+  // ── Save Feed ──
+  saveBtn.addEventListener('click', () => {
+    let duration;
+    if (manualMin.value && parseInt(manualMin.value) > 0) {
+      duration = parseInt(manualMin.value) * 60;
+    } else {
+      duration = timerSeconds;
+    }
+
+    if (timerRunning) {
+      clearInterval(timerInterval);
+      timerRunning = false;
+    }
+
+    const feed = {
+      id: Date.now(),
+      type: feedType,
+      side: feedType === 'breast' ? side : null,
+      duration,
+      timestamp: new Date().toISOString()
+    };
+
+    const feeds = getFeeds();
+    feeds.unshift(feed);
+    localStorage.setItem('feeds', JSON.stringify(feeds));
+
+    // Reset form
+    timerSeconds = 0;
+    timerDisplay.textContent = '00:00';
+    timerDisplay.classList.remove('running');
+    timerToggle.textContent = 'Start';
+    timerToggle.className = 'timer-btn start';
+    manualMin.value = '';
+    side = null;
+    sideButtons.forEach(b => b.classList.remove('active'));
+    updateSaveBtn();
+
+    // Flash save button
+    saveBtn.textContent = 'Saved!';
+    saveBtn.classList.add('saved');
+    setTimeout(() => {
+      saveBtn.textContent = 'Save Feed';
+      saveBtn.classList.remove('saved');
+    }, 1200);
+
+    renderLastFeed();
+    renderHistory();
+  });
+
+  // ── Data ──
+  function getFeeds() {
+    try { return JSON.parse(localStorage.getItem('feeds')) || []; }
+    catch { return []; }
+  }
+
+  // ── Last Feed ──
+  function renderLastFeed() {
+    const feeds = getFeeds();
+    if (!feeds.length) {
+      lastFeedEl.innerHTML = '<div class="no-feeds">No feeds recorded yet</div>';
+      return;
+    }
+
+    const last = feeds[0];
+    const ago = timeAgo(new Date(last.timestamp));
+    const dur = fmtDuration(last.duration);
+    const type = last.type.charAt(0).toUpperCase() + last.type.slice(1);
+    const sideStr = last.side ? ` (${last.side})` : '';
+
+    lastFeedEl.innerHTML = `
+      <div class="last-feed-info">
+        <div class="last-feed-time">${ago}</div>
+        <div class="last-feed-detail">${type}${sideStr} &middot; ${dur}</div>
+      </div>`;
+  }
+
+  function timeAgo(date) {
+    const diff = Math.floor((Date.now() - date) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    const h = Math.floor(diff / 3600);
+    const m = Math.floor((diff % 3600) / 60);
+    return m > 0 ? `${h}h ${m}m ago` : `${h}h ago`;
+  }
+
+  function fmtDuration(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    if (m === 0) return `${s}s`;
+    if (s === 0) return `${m} min`;
+    return `${m}m ${s}s`;
+  }
+
+  // ── History ──
+  function renderHistory() {
+    const feeds = getFeeds();
+    if (!feeds.length) { historyCard.style.display = 'none'; return; }
+
+    historyCard.style.display = 'block';
+    let html = '';
+    let curDate = '';
+
+    feeds.forEach(feed => {
+      const d = new Date(feed.timestamp);
+      const label = dateLabel(d);
+
+      if (label !== curDate) {
+        curDate = label;
+        html += `<div class="history-date">${label}</div>`;
+      }
+
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const type = feed.type.charAt(0).toUpperCase() + feed.type.slice(1);
+      const badge = feed.side
+        ? `<span class="history-badge badge-${feed.side.toLowerCase()}">${feed.side}</span>`
+        : '';
+      const dur = fmtDuration(feed.duration);
+
+      html += `
+        <div class="history-item">
+          <span class="history-time">${time}</span>
+          <span class="history-type">${type} ${badge}</span>
+          <span class="history-duration">${dur}</span>
+          <button class="history-delete" onclick="deleteFeed(${feed.id})">&times;</button>
+        </div>`;
+    });
+
+    historyList.innerHTML = html;
+  }
+
+  function dateLabel(d) {
+    const today = new Date();
+    const yest = new Date(today); yest.setDate(yest.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    if (d.toDateString() === yest.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  // ── Delete ──
+  window.deleteFeed = id => {
+    const feeds = getFeeds().filter(f => f.id !== id);
+    localStorage.setItem('feeds', JSON.stringify(feeds));
+    renderLastFeed();
+    renderHistory();
+  };
+
+  clearBtn.addEventListener('click', () => {
+    if (confirm('Clear all feed history?')) {
+      localStorage.removeItem('feeds');
+      renderLastFeed();
+      renderHistory();
+    }
+  });
+
+  // ── Auto-refresh "ago" display ──
+  setInterval(renderLastFeed, 60000);
+
+  // ── Init ──
+  renderLastFeed();
+  renderHistory();
+</script>
+
+</body>
+</html>
