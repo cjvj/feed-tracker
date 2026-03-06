@@ -375,6 +375,8 @@
   let feedType = 'breast';
   let side = null;
   let timerSeconds = 0;
+  let timerStartedAt = null;   // real clock time when started
+  let timerPausedElapsed = 0;  // seconds accumulated before last pause
   let timerInterval = null;
   let timerRunning = false;
 
@@ -428,19 +430,24 @@
     return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   }
 
+  function updateTimerDisplay() {
+    // Use real clock time so it survives screen lock / background
+    timerSeconds = timerPausedElapsed + Math.floor((Date.now() - timerStartedAt) / 1000);
+    timerDisplay.textContent = fmtTimer(timerSeconds);
+    updateSaveBtn();
+  }
+
   timerToggle.addEventListener('click', () => {
     if (timerRunning) {
       clearInterval(timerInterval);
+      timerPausedElapsed = timerSeconds;
       timerRunning = false;
       timerToggle.textContent = 'Start';
       timerToggle.className = 'timer-btn start';
       timerDisplay.classList.remove('running');
     } else {
-      timerInterval = setInterval(() => {
-        timerSeconds++;
-        timerDisplay.textContent = fmtTimer(timerSeconds);
-        updateSaveBtn();
-      }, 1000);
+      timerStartedAt = Date.now();
+      timerInterval = setInterval(updateTimerDisplay, 1000);
       timerRunning = true;
       timerToggle.textContent = 'Pause';
       timerToggle.className = 'timer-btn pause';
@@ -454,6 +461,8 @@
     clearInterval(timerInterval);
     timerRunning = false;
     timerSeconds = 0;
+    timerPausedElapsed = 0;
+    timerStartedAt = null;
     timerDisplay.textContent = '00:00';
     timerDisplay.classList.remove('running');
     timerToggle.textContent = 'Start';
@@ -480,6 +489,9 @@
     }
 
     if (timerRunning) {
+      // Recalculate from real clock before saving
+      timerSeconds = timerPausedElapsed + Math.floor((Date.now() - timerStartedAt) / 1000);
+      if (!manualMin.value || parseInt(manualMin.value) <= 0) duration = timerSeconds;
       clearInterval(timerInterval);
       timerRunning = false;
     }
@@ -498,6 +510,8 @@
 
     // Reset form
     timerSeconds = 0;
+    timerPausedElapsed = 0;
+    timerStartedAt = null;
     timerDisplay.textContent = '00:00';
     timerDisplay.classList.remove('running');
     timerToggle.textContent = 'Start';
@@ -624,7 +638,13 @@
     }
   });
 
-  // ── Auto-refresh "ago" display ──
+  // ── Catch up timer + "ago" when returning from lock screen ──
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      if (timerRunning) updateTimerDisplay();
+      renderLastFeed();
+    }
+  });
   setInterval(renderLastFeed, 60000);
 
   // ── Init ──
