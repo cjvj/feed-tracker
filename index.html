@@ -84,6 +84,33 @@
       padding: 6px 0;
     }
 
+    /* ── 24h Summary ── */
+    .summary-row {
+      display: flex;
+      justify-content: space-around;
+      text-align: center;
+    }
+
+    .summary-stat {
+      flex: 1;
+    }
+
+    .summary-num {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--primary);
+      line-height: 1.2;
+    }
+
+    .summary-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-light);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
     /* ── Button Groups ── */
     .btn-group {
       display: flex;
@@ -369,6 +396,12 @@
     </div>
   </div>
 
+  <!-- 24h Summary -->
+  <div class="card" id="summaryCard" style="display:none">
+    <div class="card-title">Last 24 Hours</div>
+    <div class="summary-row" id="summaryContent"></div>
+  </div>
+
   <!-- New Feed -->
   <div class="card">
     <div class="card-title">New Feed</div>
@@ -444,6 +477,8 @@
   const historyCard   = $('#historyCard');
   const historyList   = $('#historyList');
   const clearBtn      = $('#clearHistory');
+  const summaryCard   = $('#summaryCard');
+  const summaryContent = $('#summaryContent');
 
   // ── Feed Type ──
   typeButtons.forEach(btn => {
@@ -608,6 +643,7 @@
     }, 1200);
 
     renderLastFeed();
+    renderSummary();
     renderHistory();
   });
 
@@ -653,6 +689,34 @@
     if (m === 0) return `${s}s`;
     if (s === 0) return `${m} min`;
     return `${m}m ${s}s`;
+  }
+
+  // ── 24h Summary ──
+  function renderSummary() {
+    const feeds = getFeeds();
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const recent = feeds.filter(f => new Date(f.timestamp).getTime() >= cutoff);
+
+    if (!recent.length) { summaryCard.style.display = 'none'; return; }
+
+    summaryCard.style.display = '';
+    const total = recent.length;
+    const breast = recent.filter(f => f.type === 'breast').length;
+    const bottle = recent.filter(f => f.type === 'bottle' || f.type === 'expressed').length;
+
+    summaryContent.innerHTML = `
+      <div class="summary-stat">
+        <div class="summary-num">${total}</div>
+        <div class="summary-label">Total</div>
+      </div>
+      <div class="summary-stat">
+        <div class="summary-num">${breast}</div>
+        <div class="summary-label">Breast</div>
+      </div>
+      <div class="summary-stat">
+        <div class="summary-num">${bottle}</div>
+        <div class="summary-label">Bottle</div>
+      </div>`;
   }
 
   // ── History ──
@@ -705,6 +769,7 @@
     const feeds = getFeeds().filter(f => f.id !== id);
     localStorage.setItem('feeds', JSON.stringify(feeds));
     renderLastFeed();
+    renderSummary();
     renderHistory();
   };
 
@@ -712,6 +777,7 @@
     if (confirm('Clear all feed history?')) {
       localStorage.removeItem('feeds');
       renderLastFeed();
+      renderSummary();
       renderHistory();
     }
   });
@@ -727,6 +793,7 @@
 
   // ── Init ──
   renderLastFeed();
+  renderSummary();
   renderHistory();
 </script>
 
