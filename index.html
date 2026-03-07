@@ -217,6 +217,43 @@
       background: #fff;
     }
 
+    /* ── ML Input ── */
+    .ml-section {
+      text-align: center;
+      margin-top: 16px;
+    }
+
+    .ml-input-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .ml-input-wrap input {
+      width: 100px;
+      padding: 14px 8px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      text-align: center;
+      font-size: 32px;
+      font-weight: 300;
+      color: var(--text);
+      background: #fafafa;
+    }
+
+    .ml-input-wrap input:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: #fff;
+    }
+
+    .ml-label {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-light);
+    }
+
     /* ── Save Button ── */
     .save-btn {
       display: block;
@@ -347,7 +384,7 @@
       <button class="side-btn" data-side="R">R<span>Right</span></button>
     </div>
 
-    <div class="timer-section">
+    <div class="timer-section" id="timerSection">
       <div class="timer-display" id="timerDisplay">00:00</div>
       <div class="timer-buttons">
         <button class="timer-btn start" id="timerToggle">Start</button>
@@ -355,6 +392,13 @@
       </div>
       <div class="manual-time">
         or enter <input type="number" id="manualMin" placeholder="0" min="0" max="120" inputmode="numeric"> min
+      </div>
+    </div>
+
+    <div class="ml-section" id="mlSection" style="display:none">
+      <div class="ml-input-wrap">
+        <input type="number" id="mlInput" placeholder="0" min="0" max="500" inputmode="numeric">
+        <span class="ml-label">ml</span>
       </div>
     </div>
 
@@ -387,10 +431,13 @@
   const typeButtons   = $$('#typeSelector button');
   const sideSelector  = $('#sideSelector');
   const sideButtons   = $$('.side-btn');
+  const timerSection  = $('#timerSection');
   const timerDisplay  = $('#timerDisplay');
   const timerToggle   = $('#timerToggle');
   const timerReset    = $('#timerReset');
   const manualMin     = $('#manualMin');
+  const mlSection     = $('#mlSection');
+  const mlInput       = $('#mlInput');
   const saveBtn       = $('#saveBtn');
   const lastFeedEl    = $('#lastFeed');
   const historyCard   = $('#historyCard');
@@ -406,10 +453,23 @@
 
       if (feedType === 'breast') {
         sideSelector.classList.add('visible');
+        timerSection.style.display = '';
+        mlSection.style.display = 'none';
+        mlInput.value = '';
       } else {
         sideSelector.classList.remove('visible');
         side = null;
         sideButtons.forEach(b => b.classList.remove('active'));
+        timerSection.style.display = 'none';
+        mlSection.style.display = '';
+        // Reset timer if switching away from breast
+        if (timerRunning) { clearInterval(timerInterval); timerRunning = false; }
+        timerSeconds = 0; timerPausedElapsed = 0; timerStartedAt = null;
+        timerDisplay.textContent = '00:00';
+        timerDisplay.classList.remove('running');
+        timerToggle.textContent = 'Start';
+        timerToggle.className = 'timer-btn start';
+        manualMin.value = '';
       }
       updateSaveBtn();
     });
@@ -471,38 +531,45 @@
   });
 
   manualMin.addEventListener('input', updateSaveBtn);
+  mlInput.addEventListener('input', updateSaveBtn);
 
   // ── Save Button State ──
   function updateSaveBtn() {
-    const hasDuration = timerSeconds > 0 || (manualMin.value && parseInt(manualMin.value) > 0);
-    const hasSide = feedType !== 'breast' || side !== null;
-    saveBtn.disabled = !(hasDuration && hasSide);
+    const isBreast = feedType === 'breast';
+    let ready;
+    if (isBreast) {
+      const hasDuration = timerSeconds > 0 || (manualMin.value && parseInt(manualMin.value) > 0);
+      ready = hasDuration && side !== null;
+    } else {
+      ready = mlInput.value && parseInt(mlInput.value) > 0;
+    }
+    saveBtn.disabled = !ready;
   }
 
   // ── Save Feed ──
   saveBtn.addEventListener('click', () => {
-    let duration;
-    if (manualMin.value && parseInt(manualMin.value) > 0) {
-      duration = parseInt(manualMin.value) * 60;
-    } else {
-      duration = timerSeconds;
-    }
-
-    if (timerRunning) {
-      // Recalculate from real clock before saving
-      timerSeconds = timerPausedElapsed + Math.floor((Date.now() - timerStartedAt) / 1000);
-      if (!manualMin.value || parseInt(manualMin.value) <= 0) duration = timerSeconds;
-      clearInterval(timerInterval);
-      timerRunning = false;
-    }
-
+    const isBreast = feedType === 'breast';
     const feed = {
       id: Date.now(),
       type: feedType,
-      side: feedType === 'breast' ? side : null,
-      duration,
+      side: isBreast ? side : null,
+      duration: null,
+      ml: null,
       timestamp: new Date().toISOString()
     };
+
+    if (isBreast) {
+      if (timerRunning) {
+        timerSeconds = timerPausedElapsed + Math.floor((Date.now() - timerStartedAt) / 1000);
+        clearInterval(timerInterval);
+        timerRunning = false;
+      }
+      feed.duration = (manualMin.value && parseInt(manualMin.value) > 0)
+        ? parseInt(manualMin.value) * 60
+        : timerSeconds;
+    } else {
+      feed.ml = parseInt(mlInput.value);
+    }
 
     const feeds = getFeeds();
     feeds.unshift(feed);
@@ -517,6 +584,7 @@
     timerToggle.textContent = 'Start';
     timerToggle.className = 'timer-btn start';
     manualMin.value = '';
+    mlInput.value = '';
     side = null;
     sideButtons.forEach(b => b.classList.remove('active'));
     updateSaveBtn();
@@ -549,14 +617,14 @@
 
     const last = feeds[0];
     const ago = timeAgo(new Date(last.timestamp));
-    const dur = fmtDuration(last.duration);
     const type = last.type.charAt(0).toUpperCase() + last.type.slice(1);
     const sideStr = last.side ? ` (${last.side})` : '';
+    const measure = last.ml ? `${last.ml} ml` : fmtDuration(last.duration);
 
     lastFeedEl.innerHTML = `
       <div class="last-feed-info">
         <div class="last-feed-time">${ago}</div>
-        <div class="last-feed-detail">${type}${sideStr} &middot; ${dur}</div>
+        <div class="last-feed-detail">${type}${sideStr} &middot; ${measure}</div>
       </div>`;
   }
 
@@ -600,7 +668,7 @@
       const badge = feed.side
         ? `<span class="history-badge badge-${feed.side.toLowerCase()}">${feed.side}</span>`
         : '';
-      const dur = fmtDuration(feed.duration);
+      const dur = feed.ml ? `${feed.ml} ml` : fmtDuration(feed.duration);
 
       html += `
         <div class="history-item">
