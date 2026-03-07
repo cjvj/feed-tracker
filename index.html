@@ -419,10 +419,11 @@
   let feedType = 'breast';
   let side = null;
   let timerSeconds = 0;
-  let timerStartedAt = null;   // real clock time when started
+  let timerStartedAt = null;   // real clock time when started/resumed
   let timerPausedElapsed = 0;  // seconds accumulated before last pause
   let timerInterval = null;
   let timerRunning = false;
+  let feedStartTime = null;    // when the feed actually began (first Start press)
 
   // ── Elements ──
   const $ = s => document.querySelector(s);
@@ -464,7 +465,7 @@
         mlSection.style.display = '';
         // Reset timer if switching away from breast
         if (timerRunning) { clearInterval(timerInterval); timerRunning = false; }
-        timerSeconds = 0; timerPausedElapsed = 0; timerStartedAt = null;
+        timerSeconds = 0; timerPausedElapsed = 0; timerStartedAt = null; feedStartTime = null;
         timerDisplay.textContent = '00:00';
         timerDisplay.classList.remove('running');
         timerToggle.textContent = 'Start';
@@ -507,6 +508,7 @@
       timerDisplay.classList.remove('running');
     } else {
       timerStartedAt = Date.now();
+      if (!feedStartTime) feedStartTime = timerStartedAt;
       timerInterval = setInterval(updateTimerDisplay, 1000);
       timerRunning = true;
       timerToggle.textContent = 'Pause';
@@ -523,6 +525,7 @@
     timerSeconds = 0;
     timerPausedElapsed = 0;
     timerStartedAt = null;
+    feedStartTime = null;
     timerDisplay.textContent = '00:00';
     timerDisplay.classList.remove('running');
     timerToggle.textContent = 'Start';
@@ -555,7 +558,7 @@
       side: isBreast ? side : null,
       duration: null,
       ml: null,
-      timestamp: new Date().toISOString()
+      timestamp: null
     };
 
     if (isBreast) {
@@ -567,8 +570,14 @@
       feed.duration = (manualMin.value && parseInt(manualMin.value) > 0)
         ? parseInt(manualMin.value) * 60
         : timerSeconds;
+      // Use the actual feed start time, not save time
+      // For manual entry (no timer used), estimate start as now - duration
+      feed.timestamp = feedStartTime
+        ? new Date(feedStartTime).toISOString()
+        : new Date(Date.now() - feed.duration * 1000).toISOString();
     } else {
       feed.ml = parseInt(mlInput.value);
+      feed.timestamp = new Date().toISOString();
     }
 
     const feeds = getFeeds();
@@ -579,6 +588,7 @@
     timerSeconds = 0;
     timerPausedElapsed = 0;
     timerStartedAt = null;
+    feedStartTime = null;
     timerDisplay.textContent = '00:00';
     timerDisplay.classList.remove('running');
     timerToggle.textContent = 'Start';
